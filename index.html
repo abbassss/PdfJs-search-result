@@ -1,0 +1,90 @@
+<!doctype html>
+ 
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My PDF Viewer</title>
+  <script src="build/pdf.js"></script>
+  <script src="build/pdf.worker.js"></script>
+
+  <style>
+      .pr { font-family: sans-serif; font-weight: bold; }
+      .prl { font-style: italic; font-weight: normal; }
+  </style>
+</head>
+<body>
+    <button id="search">Search</button>
+    
+    <script>
+        var url = "https://s9.picofile.com/d/8302288776/49373867-a809-4a21-b172-4a432074d89b/Animal_Farm_BornaLC_com.pdf";        
+        //
+        // The workerSrc property shall be specified.
+        //
+        pdfjsLib.GlobalWorkerOptions.workerSrc = './build/pdf.worker.js';
+
+        document.getElementById('search').addEventListener('click', (e) => {
+                function searchPage(doc, pageNumber,searchText) {
+                    return doc.getPage(pageNumber).then(function (page) {
+                        return page.getTextContent();
+                    }).then(function (content) {
+                        // Search combined text content using regular expression
+                        var text = content.items.map(function (i) { return i.str; }).join('');
+                        var re = new RegExp("(.{0,20})" + searchText + "(.{0,20})", "gi"), m;
+                        var lines = [];
+                        while (m = re.exec(text)) {
+                            console.log('string0: '+m[0]);
+                            console.log('string1: '+m[1]);
+                            console.log('string2: '+m[2]);
+
+                            var m_lastIndex = m.index + m[0].length;
+                            console.log(m.index + "-" + m_lastIndex);                               
+                            var line = (m[1] ? "..." : "") + m[0] + (m[2] ? "..." : "");
+                            lines.push(line);
+                        }
+                        return {page: pageNumber, items: lines};
+                });
+            }
+
+            function searchPdf(searchText){
+                var loading = pdfjsLib.getDocument(url);
+                loading.promise.then(function (doc) {
+                    var results = [];
+                    for (var i = 1; i <= doc.numPages; i++)
+                        results.push(searchPage(doc, i,searchText));
+                    return Promise.all(results);
+                    }).then(function (searchResults) {
+                    
+                    // Display results using divs
+                    var pageList = [];
+                    searchResults.forEach(function (result) {
+                        var div = document.createElement('div'); 
+                        div.className="pr"; 
+                        document.body.appendChild(div);
+                        div.textContent = 'Page ' + result.page + ':';
+
+                        result.items.forEach(function (s) {
+                            //if search key exist in current page, then add page number
+                            if(s){
+                                pageList.push(result.page);
+                            }
+                            var div2 = document.createElement('div'); 
+                            div2.className="prl"; 
+                            div.appendChild(div2);
+                            div2.textContent = s; 
+                        });
+                    });
+                    
+                    // delete duplicates page numbers from result array
+                    let uniqueArray = pageList.filter((item, index, array) => {
+                        return array.indexOf(item) === index
+                    })
+                }).catch(console.error);
+            }
+            //searchPdf get search key as a argument
+            searchPdf("pig");
+        });
+        
+    </script>
+</body>
+</html>
